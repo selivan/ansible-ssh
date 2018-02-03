@@ -1,0 +1,58 @@
+#!/bin/bash
+debug=/bin/true
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 hostname <ssh arguments>"
+    echo "This script uses ansible configuration and inventory to get parameters to connect to managed hosts."
+    exit 1
+fi
+
+host="$1"
+# All other arguments are ssh arguments
+shift
+
+for program in ansible-config ansible-inventory jq; do
+    which "$program" > /dev/null || { echo "ERROR: not found: $program"; exit 1; }
+done
+
+ssh_args=$(ansible-config dump | grep '^ANSIBLE_SSH_ARGS' | cut -d'=' -f2-)
+$debug && echo "ssh_args: $ssh_args"
+inventory=$(ansible-inventory --list)
+# jq magic: https://stedolan.github.io/jq/manual/
+# .[] array/object value iterator
+# | combines two filters feeding output of left one into input of right one
+# .hosts? produces content of hosts key, no error if it does not exist
+# .[]? array/object value iterator, no error if output of . is not array or object (for example, it is null)
+all_hosts=$(echo "$inventory" | jq '.[] | .hosts? | .[]? ' | sort | uniq)
+
+echo "$all_hosts" | grep -q "$host" || { echo "ERROR: $host not found in ansible inventory"; exit 1; }
+
+# As of ansible 2.0, new style options like ansible_host override old style ansible_ssh_*
+# Except ansible_ssh_common_args
+ansible_ssh_host=$(echo "$inventory" | jq " ._meta.hostvars[\"$host\"].ansible_ssh_host? " | grep -v '^null$' | tr -d \")
+ansible_host=$(echo "$inventory" | jq " ._meta.hostvars[\"$host\"].ansible_host? " | grep -v '^null$' | tr -d \")
+# Assign new value if variable is not set or empty
+ansible_host="${ansible_host:-$ansible_ssh_host}"
+$debug && echo "ansible_host: $ansible_host"
+
+ansible_ssh_user=$(echo "$inventory" | jq " ._meta.hostvars[\"$host\"].ansible_ssh_user? " | grep -v '^null$' | tr -d \")
+ansible_user=$(echo "$inventory" | jq " ._meta.hostvars[\"$host\"].ansible_user? " | grep -v '^null$' | tr -d \")
+ansible_user="${ansible_user:-$ansible_ssh_user}"
+$debug && echo "ansible_user: $ansible_user"
+
+ansible_ssh_port=$(echo "$inventory" | jq " ._meta.hostvars[\"$host\"].ansible_ssh_port? " | grep -v '^null$' | tr -d \")
+ansible_port=$(echo "$inventory" | jq " ._meta.hostvars[\"$host\"].ansible_port? " | grep -v '^null$' | tr -d \")
+ansible_port="${ansible_port:-$ansible_ssh_port}"
+$debug && echo "ansible_port: $ansible_port"
+
+ansible_ssh_common_args=$(echo "$inventory" | jq " ._meta.hostvars[\"$host\"].ansible_ssh_common_args? " | grep -v '^null$' | tr -d \")
+$debug && echo "ansible_ssh_common_args: $ansible_ssh_common_args"
+
+# We need to prepend hostname with username@
+ansible_user="${ansible_user}@"
+
+# If port is set, add it to ssh arguments
+if [ -n "$ansible_port" ]; then ssh_args="$ssh_args -p $ansible_port"; fi
+
+$debug && echo ssh ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_common_args} $@
+exec ssh ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_common_args} $@
