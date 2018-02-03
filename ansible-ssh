@@ -3,7 +3,6 @@ debug=/bin/true
 
 if [ $# -eq 0 ]; then
     echo "Usage: $0 hostname <ssh arguments>"
-    echo "This script uses ansible configuration and inventory to get parameters to connect to managed hosts."
     exit 1
 fi
 
@@ -33,6 +32,8 @@ ansible_ssh_host=$(echo "$inventory" | jq " ._meta.hostvars[\"$host\"].ansible_s
 ansible_host=$(echo "$inventory" | jq " ._meta.hostvars[\"$host\"].ansible_host? " | grep -v '^null$' | tr -d \")
 # Assign new value if variable is not set or empty
 ansible_host="${ansible_host:-$ansible_ssh_host}"
+# If ansible_host is not set, we should use host name itself
+ansible_host=${ansible_host:-$host}
 $debug && echo "ansible_host: $ansible_host"
 
 ansible_ssh_user=$(echo "$inventory" | jq " ._meta.hostvars[\"$host\"].ansible_ssh_user? " | grep -v '^null$' | tr -d \")
@@ -49,10 +50,10 @@ ansible_ssh_common_args=$(echo "$inventory" | jq " ._meta.hostvars[\"$host\"].an
 $debug && echo "ansible_ssh_common_args: $ansible_ssh_common_args"
 
 # We need to prepend hostname with username@
-ansible_user="${ansible_user}@"
+if [ -n "$ansible_user" ]; then ansible_user="${ansible_user}@"; fi
 
 # If port is set, add it to ssh arguments
 if [ -n "$ansible_port" ]; then ssh_args="$ssh_args -p $ansible_port"; fi
 
-$debug && echo ssh ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_common_args} $@
+$debug && echo result command: ssh ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_common_args} $@
 exec ssh ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_common_args} $@
