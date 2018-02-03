@@ -4,8 +4,9 @@ Ansible installation has all necessary parameters for connecting to managed host
 
 This script parses ansible configuration to get that parameters. Just place it somewhere in your `$PATH`, like `~/.local/bin`. 
 
-Inventory variables: `ansible_host`, `ansible_ssh_host`, `ansible_user`, `ansible_ssh_user`, `ansible_port`, `ansible_ssh_port`, `ansible_ssh_common_args`.
-Configuration variables: `ssh_args`.
+Considered inventory variables: `ansible_host`, `ansible_ssh_host`, `ansible_user`, `ansible_ssh_user`, `ansible_port`, `ansible_ssh_port`, `ansible_ssh_common_args`.
+
+Considered configuration variables: `ssh_args`.
 
 How it works:
 
