@@ -39,8 +39,6 @@ ansible_ssh_host=$(echo "$inventory" | jq ".ansible_ssh_host?" | grep -v '^null$
 ansible_host=$(echo "$inventory" | jq ".ansible_host?" | grep -v '^null$' | tr -d \")
 # Assign new value if variable is not set or empty
 ansible_host="${ansible_host:-$ansible_ssh_host}"
-# If ansible_host is not set, we should use host name itself
-ansible_host=${ansible_host:-$host}
 $debug && echo "ansible_host: $ansible_host"
 
 ansible_ssh_user=$(echo "$inventory" | jq ".ansible_ssh_user?" | grep -v '^null$' | tr -d \")
