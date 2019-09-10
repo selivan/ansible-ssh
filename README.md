@@ -32,3 +32,5 @@ ubuntu@server1$
 
 * ansible
 * [jq](https://stedolan.github.io/jq/)
+
+P.S. If you like it, don't forget to put a star on [github repo](https://github.com/selivan/ansible-ssh).
