@@ -1,6 +1,7 @@
 #!/bin/bash
-#set -x
-debug=/bin/true
+
+# Set this to false to disable printing configuration variables before connecting
+debug=true
 
 for program in ansible-config ansible-inventory jq; do
     which "$program" > /dev/null || { echo "ERROR: not found: $program"; exit 1; }
