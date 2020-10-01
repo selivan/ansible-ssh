@@ -51,6 +51,9 @@ ansible_port=$(echo "$inventory" | jq ".ansible_port?" | grep -v '^null$' | tr -
 ansible_port="${ansible_port:-$ansible_ssh_port}"
 $debug && echo "ansible_port: $ansible_port"
 
+ansible_ssh_private_key_file=$(echo "$inventory" | jq ".ansible_ssh_private_key_file?" | grep -v '^null$' | tr -d \")
+$debug && echo "ansible_ssh_private_key_file: $ansible_ssh_private_key_file"
+
 ansible_ssh_common_args=$(echo "$inventory" | jq ".ansible_ssh_common_args" | grep -v '^null$' | tr -d \")
 $debug && echo "ansible_ssh_common_args: $ansible_ssh_common_args"
 
@@ -62,6 +65,9 @@ if [ -n "$ansible_user" ]; then ansible_user="${ansible_user}@"; fi
 
 # If port is set, add it to ssh arguments
 if [ -n "$ansible_port" ]; then ssh_args="$ssh_args -p $ansible_port"; fi
+
+# If private key is set, add it to ssh arguments
+if [ -n "$ansible_ssh_private_key_file" ]; then ssh_args="$ssh_args -i $ansible_ssh_private_key_file"; fi
 
 $debug && echo result command: ${ssh_executable} ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_common_args} ${ansible_ssh_extra_args} $@
 exec ${ssh_executable} ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_common_args} ${ansible_ssh_extra_args} $@
