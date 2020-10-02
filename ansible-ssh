@@ -8,7 +8,7 @@ for program in ansible-config ansible-inventory jq; do
 done
 
 # Optional -i flag processing
-if [[ $1 == -i ]]; then
+if [ "$1" == "-i" ]; then
     shift
     inventory_arg="-i $1"
     shift
