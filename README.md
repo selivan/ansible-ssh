@@ -10,27 +10,33 @@ Considered configuration variables: `ssh_args`, `ssh_executable`.
 
 How it works:
 
-```bash
+```console
 user@work$ cd my_ansible_repo
 user@work$ cat hosts | grep server1
-server1 ansible_host=192.168.0.1 ansible_user=ubuntu ansible_port=2222
+server1 ansible_host=192.168.0.1 ansible_user=root ansible_port=2222
 user@work$ cat ansible.cfg | grep ssh_args
 ssh_args = -C -o ControlMaster=auto -o ControlPersist=60s
 
 user@work$ ansible-ssh server1
 ssh_args:  -C -o ControlMaster=auto -o ControlPersist=60s
 ansible_host: 192.168.0.1
-ansible_user: ubuntu
+ansible_user: root
 ansible_port: 2222
 ansible_ssh_common_args:
 result command: ssh ubuntu@192.168.0.1 -C -o ControlMaster=auto -o ControlPersist=60s -p 2222
 
-ubuntu@server1$
+root@server1#
 ```
+
+Options:
+
+* `[-i INVENTORY]` specify inventory file for ansible
+
+* all options and arguments after the hostname are passed to ssh.
 
 # Requirements
 
-* ansible
+* Ansible
 * [jq](https://stedolan.github.io/jq/)
 
-P.S. If you like it, don't forget to put a star on [github repo](https://github.com/selivan/ansible-ssh).
+**P.S.** If you like it, don't forget to put a star on its [github repo](https://github.com/selivan/ansible-ssh).
