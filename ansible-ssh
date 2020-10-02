@@ -7,15 +7,27 @@ for program in ansible-config ansible-inventory jq; do
     which "$program" > /dev/null || { echo "ERROR: not found: $program"; exit 1; }
 done
 
+# Optional -i flag processing
+if [[ $1 == *-i* ]]; then
+    shift
+    inventory_arg="-i $1"
+    shift
+else
+    inventory_arg=""
+fi
+
 if [ $# -eq 0 ]; then
-    echo "Usage: $(basename $0) hostname <ssh arguments>"
+    echo "Usage: $(basename $0) [-i INVENTORY] hostname <ssh arguments>"
+    echo
+    echo "Using -i before the hostname passes the -i INVENTORY argument to ansible-inventory to retrieve the host."
+    echo
     echo "Avaliable hosts:"
     # jq magic: https://stedolan.github.io/jq/manual/
     # .[] array/object value iterator
     # | combines two filters feeding output of left one into input of right one
     # .hosts? produces content of hosts key, no error if it does not exist
     # .[]? array/object value iterator, no error if output of . is not array or object (for example, it is null)
-    ansible-inventory --list | jq '.[] | .hosts? | .[]? ' | sort | uniq
+    ansible-inventory $inventory_arg --list | jq '.[] | .hosts? | .[]? ' | sort | uniq
     exit 1
 fi
 
@@ -28,7 +40,7 @@ host="$1"
 # All other arguments are ssh arguments
 shift
 
-inventory=$(ansible-inventory --host "$host")
+inventory=$(ansible-inventory $inventory_arg --host "$host")
 if [ $? -ne 0 ]; then
     echo "ERROR: ansible inventory failed to gather info on $host"
     exit 1
