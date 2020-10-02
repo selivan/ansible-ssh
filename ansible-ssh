@@ -4,7 +4,7 @@
 debug=true
 
 for program in ansible-config ansible-inventory jq; do
-    which "$program" > /dev/null || { echo "ERROR: not found: $program"; exit 1; }
+    type "$program" > /dev/null || { echo "ERROR: not found: $program"; exit 1; }
 done
 
 # Optional -i flag processing
