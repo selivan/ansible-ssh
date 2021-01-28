@@ -22,12 +22,13 @@ if [ $# -eq 0 ]; then
     echo "Using -i before the hostname passes the -i INVENTORY argument to ansible-inventory to retrieve the host."
     echo
     echo "Avaliable hosts:"
+    echo
     # jq magic: https://stedolan.github.io/jq/manual/
     # .[] array/object value iterator
     # | combines two filters feeding output of left one into input of right one
     # .hosts? produces content of hosts key, no error if it does not exist
     # .[]? array/object value iterator, no error if output of . is not array or object (for example, it is null)
-    ansible-inventory $inventory_arg --list | jq '.[] | .hosts? | .[]? ' | sort | uniq
+    ansible-inventory $inventory_arg --list | jq --raw-output '.[] | .hosts? | .[]? ' | sort | uniq
     exit 1
 fi
 
@@ -48,30 +49,30 @@ fi
 
 # As of ansible 2.0, new style options like ansible_host override old style ansible_ssh_*
 # Except ansible_ssh_common_args and ansible_ssh_extra_args
-ansible_ssh_host=$(echo "$inventory" | jq '.ansible_ssh_host // empty')
-ansible_host=$(echo "$inventory" | jq '.ansible_host // empty')
+ansible_ssh_host=$(echo "$inventory" | jq --raw-output '.ansible_ssh_host // empty')
+ansible_host=$(echo "$inventory" | jq --raw-output '.ansible_host // empty')
 # Assign new value if variable is not set or empty
 ansible_host="${ansible_host:-$ansible_ssh_host}"
 ansible_host="${ansible_host:-$host}"
 $debug && echo "ansible_host: $ansible_host"
 
-ansible_ssh_user=$(echo "$inventory" | jq '.ansible_ssh_user // empty')
-ansible_user=$(echo "$inventory" | jq '.ansible_user // empty')
+ansible_ssh_user=$(echo "$inventory" | jq --raw-output '.ansible_ssh_user // empty')
+ansible_user=$(echo "$inventory" | jq --raw-output '.ansible_user // empty')
 ansible_user="${ansible_user:-$ansible_ssh_user}"
 $debug && echo "ansible_user: $ansible_user"
 
-ansible_ssh_port=$(echo "$inventory" | jq '.ansible_ssh_port // empty')
-ansible_port=$(echo "$inventory" | jq '.ansible_port // empty')
+ansible_ssh_port=$(echo "$inventory" | jq --raw-output '.ansible_ssh_port // empty')
+ansible_port=$(echo "$inventory" | jq --raw-output '.ansible_port // empty')
 ansible_port="${ansible_port:-$ansible_ssh_port}"
 $debug && echo "ansible_port: $ansible_port"
 
-ansible_ssh_private_key_file=$(echo "$inventory" | jq '.ansible_ssh_private_key_file // empty')
+ansible_ssh_private_key_file=$(echo "$inventory" | jq --raw-output '.ansible_ssh_private_key_file // empty')
 $debug && echo "ansible_ssh_private_key_file: $ansible_ssh_private_key_file"
 
-ansible_ssh_common_args=$(echo "$inventory" | jq '.ansible_ssh_common_args // empty')
+ansible_ssh_common_args=$(echo "$inventory" | jq --raw-output '.ansible_ssh_common_args // empty')
 $debug && echo "ansible_ssh_common_args: $ansible_ssh_common_args"
 
-ansible_ssh_extra_args=$(echo "$inventory" | jq '.ansible_ssh_extra_args // empty')
+ansible_ssh_extra_args=$(echo "$inventory" | jq --raw-output '.ansible_ssh_extra_args // empty')
 $debug && echo "ansible_ssh_extra_args: $ansible_ssh_extra_args"
 
 # We need to prepend hostname with username@
