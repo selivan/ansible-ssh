@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Set this to false to disable printing configuration variables before connecting
+# Set to false to disable printing configuration variables before connecting
 debug=true
 
 for program in ansible-config ansible-inventory jq; do
@@ -47,33 +47,51 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# As of ansible 2.0, new style options like ansible_host override old style ansible_ssh_*
-# Except ansible_ssh_common_args and ansible_ssh_extra_args
+# As of ansible 2.0, new style options like ansible_XXX override old style ansible_ssh_XXX
+# No new style options for: ansible_ssh_args ansible_ssh_common_args ansible_ssh_extra_args
+
+
 ansible_ssh_host=$(echo "$inventory" | jq --raw-output '.ansible_ssh_host // empty')
 ansible_host=$(echo "$inventory" | jq --raw-output '.ansible_host // empty')
 # Assign new value if variable is not set or empty
 ansible_host="${ansible_host:-$ansible_ssh_host}"
-ansible_host="${ansible_host:-$host}"
 $debug && echo "ansible_host: $ansible_host"
+
 
 ansible_ssh_user=$(echo "$inventory" | jq --raw-output '.ansible_ssh_user // empty')
 ansible_user=$(echo "$inventory" | jq --raw-output '.ansible_user // empty')
+# Assign new value if variable is not set or empty
 ansible_user="${ansible_user:-$ansible_ssh_user}"
 $debug && echo "ansible_user: $ansible_user"
 
+
 ansible_ssh_port=$(echo "$inventory" | jq --raw-output '.ansible_ssh_port // empty')
 ansible_port=$(echo "$inventory" | jq --raw-output '.ansible_port // empty')
+# Assign new value if variable is not set or empty
 ansible_port="${ansible_port:-$ansible_ssh_port}"
 $debug && echo "ansible_port: $ansible_port"
+
+
+# If ansible_host is not set use host argument
+ansible_host="${ansible_host:-$host}"
+$debug && echo "ansible_host: $ansible_host"
+
 
 ansible_ssh_private_key_file=$(echo "$inventory" | jq --raw-output '.ansible_ssh_private_key_file // empty')
 $debug && echo "ansible_ssh_private_key_file: $ansible_ssh_private_key_file"
 
+
+ansible_ssh_args=$(echo "$inventory" | jq --raw-output '.ansible_ssh_args // empty')
+$debug && echo "ansible_ssh_args: $ansible_ssh_args"
+
+
 ansible_ssh_common_args=$(echo "$inventory" | jq --raw-output '.ansible_ssh_common_args // empty')
 $debug && echo "ansible_ssh_common_args: $ansible_ssh_common_args"
 
+
 ansible_ssh_extra_args=$(echo "$inventory" | jq --raw-output '.ansible_ssh_extra_args // empty')
 $debug && echo "ansible_ssh_extra_args: $ansible_ssh_extra_args"
+
 
 # We need to prepend hostname with username@
 if [ -n "$ansible_user" ]; then ansible_user="${ansible_user}@"; fi
@@ -84,5 +102,41 @@ if [ -n "$ansible_port" ]; then ssh_args="$ssh_args -p $ansible_port"; fi
 # If private key is set, add it to ssh arguments
 if [ -n "$ansible_ssh_private_key_file" ]; then ssh_args="$ssh_args -i $ansible_ssh_private_key_file"; fi
 
-$debug && echo result command: ${ssh_executable} ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_common_args} ${ansible_ssh_extra_args} $@
-exec ${ssh_executable} ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_common_args} ${ansible_ssh_extra_args} $@
+# Parse jinja templates inside variables if present
+
+if echo "$ansible_ssh_private_key_file" | grep -Fq '{{'; then
+$debug && echo Parsing jinja template inside ansible_ssh_private_key_file
+var_parsed=$(ansible $inventory_arg --connection local -m debug -a "var=ansible_ssh_private_key_file" ${host} | sed 's/.*SUCCESS => {/{/' | sed 's/\\n/ /' | jq --raw-output .ansible_ssh_private_key_file )
+ansible_ssh_private_key_file="$var_parsed"
+$debug && echo "ansible_ssh_private_key_file: $ansible_ssh_private_key_file"
+fi
+
+
+if echo "$ansible_ssh_args" | grep -Fq '{{'; then
+$debug && echo Parsing jinja template inside ansible_ssh_args
+var_parsed=$(ansible $inventory_arg --connection local -m debug -a "var=ansible_ssh_args" ${host} | sed 's/.*SUCCESS => {/{/' | sed 's/\\n/ /' | jq --raw-output .ansible_ssh_args )
+ansible_ssh_args="$var_parsed"
+$debug && echo "ansible_ssh_args: $ansible_ssh_args"
+fi
+
+
+if echo "$ansible_ssh_common_args" | grep -Fq '{{'; then
+$debug && echo Parsing jinja template inside ansible_ssh_common_args
+var_parsed=$(ansible $inventory_arg --connection local -m debug -a "var=ansible_ssh_common_args" ${host} | sed 's/.*SUCCESS => {/{/' | sed 's/\\n/ /' | jq --raw-output .ansible_ssh_common_args )
+ansible_ssh_common_args="$var_parsed"
+$debug && echo "ansible_ssh_common_args: $ansible_ssh_common_args"
+fi
+
+
+if echo "$ansible_ssh_extra_args" | grep -Fq '{{'; then
+$debug && echo Parsing jinja template inside ansible_ssh_extra_args
+var_parsed=$(ansible $inventory_arg --connection local -m debug -a "var=ansible_ssh_extra_args" ${host} | sed 's/.*SUCCESS => {/{/' | sed 's/\\n/ /' | jq --raw-output .ansible_ssh_extra_args )
+ansible_ssh_extra_args="$var_parsed"
+$debug && echo "ansible_ssh_extra_args: $ansible_ssh_extra_args"
+fi
+
+
+command="${ssh_executable} ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_args} ${ansible_ssh_common_args} ${ansible_ssh_extra_args} $@"
+$debug && echo && echo ssh command: $command
+# Multiple exec statements required to prevent quotes inside variables from escaping
+exec sh -c "exec $command"

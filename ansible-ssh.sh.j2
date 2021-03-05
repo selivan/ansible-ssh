@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# Set to false to disable printing configuration variables before connecting
+debug=true
+
+for program in ansible-config ansible-inventory jq; do
+    type "$program" > /dev/null || { echo "ERROR: not found: $program"; exit 1; }
+done
+
+# Optional -i flag processing
+if [ "$1" == "-i" ]; then
+    shift
+    inventory_arg="-i $1"
+    shift
+else
+    inventory_arg=""
+fi
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $(basename $0) [-i INVENTORY] hostname <ssh arguments>"
+    echo
+    echo "Using -i before the hostname passes the -i INVENTORY argument to ansible-inventory to retrieve the host."
+    echo
+    echo "Avaliable hosts:"
+    echo
+    # jq magic: https://stedolan.github.io/jq/manual/
+    # .[] array/object value iterator
+    # | combines two filters feeding output of left one into input of right one
+    # .hosts? produces content of hosts key, no error if it does not exist
+    # .[]? array/object value iterator, no error if output of . is not array or object (for example, it is null)
+    ansible-inventory $inventory_arg --list | jq --raw-output '.[] | .hosts? | .[]? ' | sort | uniq
+    exit 1
+fi
+
+ssh_args=$(ansible-config dump | grep '^ANSIBLE_SSH_ARGS' | cut -d'=' -f2-)
+ssh_executable=$(ansible-config dump | grep '^ANSIBLE_SSH_EXECUTABLE' | cut -d'=' -f2-)
+$debug && echo "ssh_args: $ssh_args"
+$debug && echo "ssh_executable: $ssh_executable"
+
+host="$1"
+# All other arguments are ssh arguments
+shift
+
+inventory=$(ansible-inventory $inventory_arg --host "$host")
+if [ $? -ne 0 ]; then
+    echo "ERROR: ansible inventory failed to gather info on $host"
+    exit 1
+fi
+
+# As of ansible 2.0, new style options like ansible_XXX override old style ansible_ssh_XXX
+# No new style options for: ansible_ssh_args ansible_ssh_common_args ansible_ssh_extra_args
+
+{% for i,j in (('ansible_ssh_host', 'ansible_host'), ('ansible_ssh_user','ansible_user'), ('ansible_ssh_port','ansible_port')) %}
+
+{{ i }}=$(echo "$inventory" | jq --raw-output '.{{ i }} // empty')
+{{ j }}=$(echo "$inventory" | jq --raw-output '.{{ j }} // empty')
+# Assign new value if variable is not set or empty
+{{ j }}="${% raw %}{{% endraw %}{{ j }}:-${{ i }}{% raw %}}{% endraw %}"
+$debug && echo "{{ j }}: ${{ j }}"
+
+{% endfor %}
+
+# If ansible_host is not set use host argument
+ansible_host="${ansible_host:-$host}"
+$debug && echo "ansible_host: $ansible_host"
+
+{% for var in ('ansible_ssh_private_key_file','ansible_ssh_args','ansible_ssh_common_args','ansible_ssh_extra_args',) %}
+
+{{ var }}=$(echo "$inventory" | jq --raw-output '.{{ var }} // empty')
+$debug && echo "{{ var }}: ${{ var }}"
+
+{% endfor %}
+
+# We need to prepend hostname with username@
+if [ -n "$ansible_user" ]; then ansible_user="${ansible_user}@"; fi
+
+# If port is set, add it to ssh arguments
+if [ -n "$ansible_port" ]; then ssh_args="$ssh_args -p $ansible_port"; fi
+
+# If private key is set, add it to ssh arguments
+if [ -n "$ansible_ssh_private_key_file" ]; then ssh_args="$ssh_args -i $ansible_ssh_private_key_file"; fi
+
+# Parse jinja templates inside variables if present
+{% for var in ('ansible_ssh_private_key_file','ansible_ssh_args','ansible_ssh_common_args','ansible_ssh_extra_args',) %}
+
+if echo "${{ var }}" | grep -Fq '{% raw %}{{{% endraw %}'; then
+$debug && echo Parsing jinja template inside {{ var }}
+var_parsed=$(ansible $inventory_arg --connection local -m debug -a "var={{ var }}" ${host} | sed 's/.*SUCCESS => {/{/' | sed 's/\\n/ /' | jq --raw-output .{{ var }} )
+{{ var }}="$var_parsed"
+$debug && echo "{{ var }}: ${{ var }}"
+fi
+
+{% endfor %}
+
+command="${ssh_executable} ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_args} ${ansible_ssh_common_args} ${ansible_ssh_extra_args} $@"
+$debug && echo && echo ssh command: $command
+# Multiple exec statements required to prevent quotes inside variables from escaping
+exec sh -c "exec $command"
