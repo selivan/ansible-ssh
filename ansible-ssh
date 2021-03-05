@@ -137,6 +137,6 @@ fi
 
 
 command="${ssh_executable} ${ansible_user}${ansible_host} ${ssh_args} ${ansible_ssh_args} ${ansible_ssh_common_args} ${ansible_ssh_extra_args} $@"
-$debug && echo && echo ssh command: $command
+$debug && echo && echo ssh command: $command && echo
 # Multiple exec statements required to prevent quotes inside variables from escaping
 exec sh -c "exec $command"
