@@ -35,7 +35,7 @@ fi
 ssh_args=$(ansible-config dump | grep '^ANSIBLE_SSH_ARGS' | cut -d'=' -f2-)
 ssh_executable=$(ansible-config dump | grep '^ANSIBLE_SSH_EXECUTABLE' | cut -d'=' -f2-)
 # Default value if ANSIBLE_SSH_EXECUTABLE is not set in some ansible installations
-[ -z "echo $(echo $x | tr -d ' ')" ] && ssh_executable=ssh
+[ -z "echo $(echo $ssh_executable | tr -d ' ')" ] && ssh_executable=ssh
 $debug && echo "ssh_args: $ssh_args"
 $debug && echo "ssh_executable: $ssh_executable"
 
