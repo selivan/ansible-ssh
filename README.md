@@ -1,8 +1,8 @@
 # ansible-ssh
 
-Ansible installation has all necessary parameters for connecting to managed hosts. Duplicationg this parameters in `~/.ssh/config` is not convenient, especially if dynamic inventory is used.
+An Ansible installation has all necessary parameters for connecting to managed hosts. Duplicating these parameters in `~/.ssh/config` is not convenient, especially if a dynamic inventory is used.
 
-This script parses ansible configuration to get that parameters. Just place it somewhere in your `$PATH`, like `~/.local/bin`.
+This script parses ansible configuration to get these parameters. Just place it somewhere in your `$PATH`, like `~/.local/bin`.
 
 Considered inventory variables: `ansible_host`, `ansible_ssh_host`, `ansible_user`, `ansible_ssh_user`, `ansible_port`, `ansible_ssh_port`, `ansible_ssh_private_key_file`, `ansible_ssh_common_args`, `ansible_ssh_extra_args`.
 
